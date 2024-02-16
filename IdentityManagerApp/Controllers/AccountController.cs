@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Encodings.Web;
 
 namespace IdentityManagerApp.Controllers
 {
@@ -12,12 +13,14 @@ namespace IdentityManagerApp.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
         private readonly IEmailSender _emailSender;
+        private readonly UrlEncoder _urlEncoder;
 
-        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IEmailSender emailSender)
+        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IEmailSender emailSender, UrlEncoder urlEncoder)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
+            _urlEncoder = urlEncoder;
         }
 
         [HttpGet]
@@ -209,10 +212,18 @@ namespace IdentityManagerApp.Controllers
         [Authorize]
         public async Task<IActionResult> EnableAuthenticator()
         {
+            string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
             var user = await _userManager.GetUserAsync(User);
             await _userManager.ResetAuthenticatorKeyAsync(user);
             var token = await _userManager.GetAuthenticatorKeyAsync(user);
-            TwoFactorAuthenticationModel model = new() { Token = token };
+            string AuthUri = string.Format(AuthenticatorUriFormat,
+                                           _urlEncoder.Encode("IdentityManagerApp"),
+                                           _urlEncoder.Encode(user.Email),
+                                           token);
+
+            TwoFactorAuthenticationModel model = new() { Token = token, QrCodeUrl = AuthUri };
+
+
             return View(model);
         }
 
@@ -266,6 +277,15 @@ namespace IdentityManagerApp.Controllers
 
             ModelState.AddModelError(string.Empty, "Invalid login attempt.");
             return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> RemoveAuthenticator()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            await _userManager.ResetAuthenticatorKeyAsync(user);
+            await _userManager.SetTwoFactorEnabledAsync(user, false);
+            return RedirectToAction(nameof(Index), "Home");
         }
 
         [HttpGet]
