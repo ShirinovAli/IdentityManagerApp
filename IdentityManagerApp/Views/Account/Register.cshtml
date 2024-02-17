@@ -1,4 +1,6 @@
 ﻿@model RegisterModel
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<AppUser> signInManager
 
 <div class="row col-md-10 offset-md-1">
     <h1 class="text-primary text-center pt-2">Register</h1>
@@ -46,6 +48,35 @@
             </div>
         </div>
     </form>
+
+    @{
+        var schemes = await signInManager.GetExternalAuthenticationSchemesAsync();
+        var loginProviders = schemes.ToList();
+    }
+
+    @if (loginProviders.Count() > 0)
+    {
+        <div class="p-3">
+            <hr />
+            <div class="col-12 p-3 text-center border rounded">
+                <section>
+                    <p>User another service to log in.</p>
+                    <form asp-controller="Account" asp-action="ExternalLogin" asp-route-reutrnurl="@ViewData["ReturnUrl"]" method="post" role="form">
+                        <div>
+                            <p>
+                                @foreach (var provider in loginProviders)
+                                {
+                                    <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name">
+                                        @provider.Name
+                                    </button>
+                                }
+                            </p>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    }
 </div>
 
 @section Scripts{

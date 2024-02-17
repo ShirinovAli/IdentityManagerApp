@@ -30,6 +30,12 @@ builder.Services.Configure<IdentityOptions>(opt =>
     opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
 });
 
+builder.Services.AddAuthentication().AddMicrosoftAccount(opt =>
+{
+    opt.ClientId = builder.Configuration["Authentication:Microsoft:ClientId"];
+    opt.ClientSecret = builder.Configuration["Authentication:Microsoft:ClientSecret"];
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

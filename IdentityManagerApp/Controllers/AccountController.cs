@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 namespace IdentityManagerApp.Controllers
@@ -292,6 +293,102 @@ namespace IdentityManagerApp.Controllers
         public IActionResult Error()
         {
             return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public IActionResult ExternalLogin(string provider, string returnurl = null)
+        {
+            var redirectUrl = Url.Action("ExternalLoginCallback", "Account", new { returnurl });
+            var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+            return Challenge(properties, provider);
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> ExternalLoginCallback(string returnurl = null, string remoteError = null)
+        {
+            returnurl = returnurl ?? Url.Content("~/");
+            if (remoteError != null)
+            {
+                ModelState.AddModelError(string.Empty, $"Error from external provider: {remoteError}");
+                return View(nameof(Login));
+            }
+
+            var info = await _signInManager.GetExternalLoginInfoAsync();
+            if (info == null)
+                return RedirectToAction(nameof(Login));
+
+            //sign in the user with external login provider. Only if they have a login
+
+            var result = await _signInManager
+                            .ExternalLoginSignInAsync(info.LoginProvider,
+                                                      info.ProviderKey,
+                                                      isPersistent: false,
+                                                      bypassTwoFactor: true);
+
+            if (result.Succeeded)
+            {
+                await _signInManager.UpdateExternalAuthenticationTokensAsync(info);
+                return LocalRedirect(returnurl);
+            }
+            if (result.RequiresTwoFactor)
+            {
+                return RedirectToAction(nameof(VerifyAuthenticatorCode), new { returnurl });
+            }
+            else
+            {
+                ViewData["ReturnUrl"] = returnurl;
+                ViewData["ProviderDisplayName"] = info.ProviderDisplayName;
+
+                return View("ExternalLoginConfirmation", new ExternalLoginConfirmationModel
+                {
+                    Email = info.Principal.FindFirstValue(ClaimTypes.Email),
+                    Name = info.Principal.FindFirstValue(ClaimTypes.Name)
+                });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [AllowAnonymous]
+        public async Task<IActionResult> ExternalLoginConfirmation(ExternalLoginConfirmationModel model, string returnurl = null)
+        {
+            returnurl = returnurl ?? Url.Content("~/");
+
+            if (ModelState.IsValid)
+            {
+                var info = await _signInManager.GetExternalLoginInfoAsync();
+                if (info == null)
+                    return View("Error");
+
+                AppUser user = new()
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    Name = model.Email,
+                    NormalizedEmail = model.Email.ToUpper()
+                };
+
+                var result = await _userManager.CreateAsync(user);
+                if (!result.Succeeded)
+                {
+                    AddErrors(result);
+                    return View(model);
+                }
+
+                result = await _userManager.AddLoginAsync(user, info);
+                if (result.Succeeded)
+                {
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+                    await _signInManager.UpdateExternalAuthenticationTokensAsync(info);
+                }
+
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                return RedirectToAction("Index", "Home");
+            }
+            return View(model);
         }
 
         private void AddErrors(IdentityResult result)

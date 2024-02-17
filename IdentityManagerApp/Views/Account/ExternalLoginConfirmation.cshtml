@@ -1,0 +1,49 @@
+﻿@model ExternalLoginConfirmationModel
+@{
+    ViewData["Title"] = "ExternalLoginConfirmation";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row col-md-10 offset-md-1">
+    <h1 class="text-primary text-center pt-2">Register</h1>
+    <p class="text-primary text-center pt-2">Associate your @ViewData["ProviderDisplayName"] account.</p>
+    <form method="post" asp-controller="Account" asp-action="ExternalLoginConfirmation" asp-route-returnurl="@ViewData["ReturnUrl"]">
+        <input type="hidden" asp-for="Email" />
+        <div class="border p-2 rounded">
+            <p>
+                You have successfully authenticated with <strong>@ViewData["ProviderDisplayName"]</strong>.
+                Please enter a user name for this site below and click the Register button to finish logging in.
+            </p>
+            <div asp-validation-summary="All" class="text-danger"></div>
+
+            <div class="form-group mt-2">
+                <label asp-for="Email"></label>
+                <div class="col-md-12 pt-1">
+                    <input asp-for="Email" class="form-control" disabled />
+                    <span asp-validation-for="Email" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="form-group mt-2">
+                <label asp-for="Name"></label>
+                <div class="col-md-12 pt-1">
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="form-group pt-3">
+                <div class="col-md-6 col-offset-md-3 text-end">
+                    <button class="btn btn-success" type="submit">Register</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts{
+    @{
+        await Html.PartialAsync("_ValidationScriptsPartial");
+    }
+}
+
