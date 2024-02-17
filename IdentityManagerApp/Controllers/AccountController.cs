@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
@@ -12,28 +13,51 @@ namespace IdentityManagerApp.Controllers
     public class AccountController : Controller
     {
         private readonly UserManager<AppUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly SignInManager<AppUser> _signInManager;
         private readonly IEmailSender _emailSender;
         private readonly UrlEncoder _urlEncoder;
 
-        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IEmailSender emailSender, UrlEncoder urlEncoder)
+        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IEmailSender emailSender, UrlEncoder urlEncoder, RoleManager<IdentityRole> roleManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
             _urlEncoder = urlEncoder;
+            _roleManager = roleManager;
         }
 
         [HttpGet]
-        public IActionResult Register()
+        public async Task<IActionResult> Register()
         {
-            return View(new RegisterModel());
+            if (!_roleManager.RoleExistsAsync(SD.Admin).GetAwaiter().GetResult())
+            {
+                await _roleManager.CreateAsync(new IdentityRole(SD.Admin));
+                await _roleManager.CreateAsync(new IdentityRole(SD.User));
+            }
+
+            RegisterModel model = new()
+            {
+                RoleList = _roleManager.Roles.Select(x => x.Name).Select(c => new SelectListItem
+                {
+                    Text = c,
+                    Value = c
+                })
+            };
+
+            return View(model);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterModel model)
         {
+            model.RoleList = _roleManager.Roles.Select(x => x.Name).Select(c => new SelectListItem
+            {
+                Text = c,
+                Value = c
+            });
+
             if (!ModelState.IsValid)
                 return View(model);
 
@@ -51,6 +75,15 @@ namespace IdentityManagerApp.Controllers
                 return View(model);
             }
 
+            if (model.RoleSelected.Any() && model.RoleSelected == SD.Admin)
+            {
+                await _userManager.AddToRoleAsync(user, SD.Admin);
+            }
+            else
+            {
+                await _userManager.AddToRoleAsync(user, SD.User);
+            }
+
             var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var callbackUrl = Url.Action("ConfirmEmail", "Account", new
             {
@@ -58,10 +91,10 @@ namespace IdentityManagerApp.Controllers
                 code
             }, protocol: HttpContext.Request.Scheme);
 
-            await _emailSender
-                    .SendEmailAsync(model.Email,
-                                    "Confirm Email - Identity Manager App",
-                                    $"Please confirm your email by clicking here: <a href='{callbackUrl}'>link</a>");
+            //await _emailSender
+            //        .SendEmailAsync(model.Email,
+            //                        "Confirm Email - Identity Manager App",
+            //                        $"Please confirm your email by clicking here: <a href='{callbackUrl}'>link</a>");
 
             await _signInManager.SignInAsync(user, isPersistent: false);
             return RedirectToAction("Index", "Home");
@@ -291,6 +324,12 @@ namespace IdentityManagerApp.Controllers
 
         [HttpGet]
         public IActionResult Error()
+        {
+            return View();
+        }
+
+        [HttpGet]
+        public IActionResult NoAccess()
         {
             return View();
         }
