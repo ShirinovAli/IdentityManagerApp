@@ -1,3 +1,4 @@
+using IdentityManagerApp;
 using IdentityManagerApp.Data;
 using IdentityManagerApp.Models;
 using IdentityManagerApp.Services;
@@ -33,6 +34,18 @@ builder.Services.Configure<IdentityOptions>(opt =>
     opt.Lockout.MaxFailedAccessAttempts = 3;
     opt.SignIn.RequireConfirmedEmail = false;
     opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
+});
+
+builder.Services.AddAuthorization(opt =>
+{
+    opt.AddPolicy("Admin", policy => policy.RequireRole(SD.Admin));
+    opt.AddPolicy("AdminAndUser", policy => policy.RequireRole(SD.Admin).RequireRole(SD.User));
+    opt.AddPolicy("AdminRole_CreateClaim", policy => policy.RequireRole(SD.Admin).RequireClaim("create", "True"));
+    opt.AddPolicy("AdminRole_CreateEditDeleteClaim", policy => policy
+                    .RequireRole(SD.Admin)
+                    .RequireClaim("create", "True")
+                    .RequireClaim("edit", "True")
+                    .RequireClaim("delete", "True"));
 });
 
 builder.Services.AddAuthentication().AddMicrosoftAccount(opt =>

@@ -75,9 +75,9 @@ namespace IdentityManagerApp.Controllers
                 return View(model);
             }
 
-            if (model.RoleSelected.Any() && model.RoleSelected == SD.Admin)
+            if (model.RoleSelected.Any())
             {
-                await _userManager.AddToRoleAsync(user, SD.Admin);
+                await _userManager.AddToRoleAsync(user, model.RoleSelected);
             }
             else
             {
